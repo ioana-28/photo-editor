@@ -78,6 +78,19 @@ describe('buildLut (fade lifts blacks)', () => {
     expect(lut[0]).toBe(0)
     expect(lut[128]).toBe(128)
   })
+
+  it('shadows lift dark tones, highlights lift bright tones', () => {
+    const shadowLut = buildLut({ ...neutralParams(), shadows: 0.5 })
+    expect(shadowLut[20]).toBeGreaterThan(20)
+    expect(shadowLut[240]).toBeGreaterThanOrEqual(238)
+
+    const highlightLut = buildLut({ ...neutralParams(), highlights: 0.5 })
+    expect(highlightLut[240]).toBeGreaterThanOrEqual(254)
+    expect(highlightLut[10]).toBeLessThanOrEqual(12)
+
+    const recoverLut = buildLut({ ...neutralParams(), highlights: -0.5 })
+    expect(recoverLut[240]).toBeLessThan(240)
+  })
 })
 
 const analysis = {
@@ -114,6 +127,31 @@ describe('suggestions / auto enhance', () => {
     expect(p.contrast).toBeGreaterThan(0)
     expect(p.warmth).toBeGreaterThan(0)
     expect(p.sharpen).toBeGreaterThan(0)
-    expect(p.brightness).toBeLessThanOrEqual(0.6)
+    expect(p.brightness).toBeLessThanOrEqual(0.4)
+    expect(p.contrast).toBeLessThanOrEqual(0.35)
+    expect(p.sharpen).toBeLessThanOrEqual(0.35)
+  })
+
+  it('uses shadows / highlights / vibrance for the relevant statuses', () => {
+    const dark = suggestionsFromAnalysis(analysis).find(
+      (c) => c.status === 'too dark',
+    )
+    expect(dark.params.shadows).toBeGreaterThan(0)
+
+    const washed = suggestionsFromAnalysis({
+      ...analysis,
+      assessment: [
+        { property: 'saturation', status: 'washed out', value: 0.1, target: 0.35, reason: 'x' },
+      ],
+    })[0]
+    expect(washed.params.vibrance).toBeGreaterThan(0)
+
+    const blown = suggestionsFromAnalysis({
+      ...analysis,
+      assessment: [
+        { property: 'highlights', status: 'blown highlights', value: 0.2, target: 0.02, reason: 'x' },
+      ],
+    })[0]
+    expect(blown.params.highlights).toBeLessThan(0)
   })
 })

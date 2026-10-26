@@ -11,12 +11,11 @@ import MatchReference from './components/MatchReference'
 import { useEditor } from './hooks/useEditor'
 import { loadImageFile, makeThumbnail } from './lib/imageLoader'
 import { analyzeBitmap } from './lib/analyze'
-import { autoEnhanceParams } from './lib/autoEnhance'
 import { suggestParams } from './lib/suggest'
 import { exportImage } from './lib/exportImage'
 
 export default function App() {
-  const { state, allPresets, effectiveParams, actions } = useEditor()
+  const { state, allPresets, effectiveParams, hasAuto, actions } = useEditor()
   const [format, setFormat] = useState('image/jpeg')
   const [busy, setBusy] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -79,7 +78,7 @@ export default function App() {
       analysis: state.analysis,
       mode: 'heuristic',
     })
-    actions.applyDelta(params)
+    actions.setAuto(params)
   }, [state.analysis, actions])
 
   const handleDownload = useCallback(async () => {
@@ -124,6 +123,8 @@ export default function App() {
         onDownload={handleDownload}
         format={format}
         setFormat={setFormat}
+        comparePinned={state.comparePinned}
+        onToggleCompare={actions.toggleComparePinned}
       />
 
       {ready ? (
@@ -154,7 +155,7 @@ export default function App() {
           <EditorCanvas
             bitmap={state.image.preview}
             params={effectiveParams}
-            comparing={state.compare}
+            comparing={state.compare || state.comparePinned}
             onCompareStart={() => actions.setCompare(true)}
             onCompareEnd={() => actions.setCompare(false)}
           />
@@ -162,8 +163,12 @@ export default function App() {
           <aside className="panel right">
             <SuggestionChips
               analysis={state.analysis}
-              onApply={actions.applyDelta}
-              onApplyAll={() => actions.applyDelta(autoEnhanceParams(state.analysis))}
+              autoIntensity={state.autoIntensity}
+              hasAuto={hasAuto}
+              onApply={actions.addAuto}
+              onApplyAll={actions.setAuto}
+              onAutoIntensityChange={actions.setAutoIntensity}
+              onResetAuto={actions.resetAuto}
               disabled={busy}
             />
             <IntensityControl

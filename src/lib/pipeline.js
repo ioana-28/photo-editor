@@ -1,4 +1,4 @@
-import { buildLut, toCssFilter, isNeutralParams } from './filters'
+import { buildLut, clamp, isNeutralParams, toCssFilter, toneNeeded } from './filters'
 
 /**
  * The single renderer. Given a bitmap and a params object it produces a canvas.
@@ -27,15 +27,38 @@ export function renderToCanvas(bitmap, params, targetCanvas) {
   ctx.drawImage(bitmap, 0, 0, w, h)
   ctx.filter = 'none'
 
-  // 2. Fade (tone remap via lookup table).
-  if ((params.fade ?? 0) > 1e-4) {
-    const lut = buildLut(params)
+  // 2. Tone remap (fade / shadows / highlights) + vibrance, one pixel pass.
+  const needTone = toneNeeded(params)
+  const vib = clamp(params.vibrance ?? 0, -1, 1)
+  const needVib = Math.abs(vib) > 1e-4
+  if (needTone || needVib) {
+    const lut = needTone ? buildLut(params) : null
     const img = ctx.getImageData(0, 0, w, h)
     const d = img.data
     for (let i = 0; i < d.length; i += 4) {
-      d[i] = lut[d[i]]
-      d[i + 1] = lut[d[i + 1]]
-      d[i + 2] = lut[d[i + 2]]
+      let r = d[i]
+      let g = d[i + 1]
+      let b = d[i + 2]
+      if (lut) {
+        r = lut[r]
+        g = lut[g]
+        b = lut[b]
+      }
+      if (needVib) {
+        const mx = r > g ? (r > b ? r : b) : g > b ? g : b
+        const mn = r < g ? (r < b ? r : b) : g < b ? g : b
+        if (mx !== mn) {
+          const y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+          const sat = (mx - mn) / mx
+          const boost = 1 + vib * (1 - sat) * 0.7
+          r = y + (r - y) * boost
+          g = y + (g - y) * boost
+          b = y + (b - y) * boost
+        }
+      }
+      d[i] = r
+      d[i + 1] = g
+      d[i + 2] = b
     }
     ctx.putImageData(img, 0, 0)
   }

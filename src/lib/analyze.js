@@ -71,6 +71,10 @@ export function analyzeBitmap(bitmap) {
   for (let v = 0; v <= 2; v++) blacks += hist[v]
   let whites = 0
   for (let v = 253; v <= 255; v++) whites += hist[v]
+  let shadowClip = 0
+  for (let v = 0; v <= 20; v++) shadowClip += hist[v]
+  let highlightClip = 0
+  for (let v = 235; v <= 255; v++) highlightClip += hist[v]
 
   // sharpness: variance of the Laplacian over luminance
   let lapSum = 0
@@ -112,7 +116,12 @@ export function analyzeBitmap(bitmap) {
       p99: p99 / 255,
     },
     contrast: { range: (p95 - p5) / 255, stdDev: Math.sqrt(varY) / 255 },
-    clipping: { blacks: blacks / n, whites: whites / n },
+    clipping: {
+      blacks: blacks / n,
+      whites: whites / n,
+      shadows: shadowClip / n,
+      highlights: highlightClip / n,
+    },
     color: {
       meanR,
       meanG,
@@ -202,21 +211,21 @@ export function assess(m) {
       reason: `average saturation ${m.saturation.mean.toFixed(2)} is high`,
     })
 
-  if (m.clipping.blacks > 0.1)
+  if (m.clipping.blacks > 0.08 || m.clipping.shadows > 0.5)
     out.push({
       property: 'shadows',
       status: 'crushed blacks',
       value: m.clipping.blacks,
       target: 0.02,
-      reason: `${(m.clipping.blacks * 100).toFixed(1)}% of pixels are pure black`,
+      reason: `${(m.clipping.blacks * 100).toFixed(1)}% pure black, p1 ${m.percentiles.p1.toFixed(2)}`,
     })
-  if (m.clipping.whites > 0.1)
+  if (m.clipping.whites > 0.08 || m.clipping.highlights > 0.4)
     out.push({
       property: 'highlights',
       status: 'blown highlights',
       value: m.clipping.whites,
       target: 0.02,
-      reason: `${(m.clipping.whites * 100).toFixed(1)}% of pixels are pure white`,
+      reason: `${(m.clipping.whites * 100).toFixed(1)}% pure white, p99 ${m.percentiles.p99.toFixed(2)}`,
     })
 
   if (m.sharpness.quality === 'soft')

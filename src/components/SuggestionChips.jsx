@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react'
 import { autoEnhanceParams, suggestionsFromAnalysis } from '../lib/autoEnhance'
+import Slider from './Slider'
 
-export default function SuggestionChips({ analysis, onApply, onApplyAll, disabled }) {
+export default function SuggestionChips({
+  analysis,
+  autoIntensity,
+  hasAuto,
+  onApply,
+  onApplyAll,
+  onAutoIntensityChange,
+  onResetAuto,
+  disabled,
+}) {
   const [applied, setApplied] = useState(() => new Set())
 
   const suggestions = useMemo(
@@ -9,7 +19,10 @@ export default function SuggestionChips({ analysis, onApply, onApplyAll, disable
     [analysis],
   )
 
-  const reset = () => setApplied(new Set())
+  const clear = () => {
+    setApplied(new Set())
+    onResetAuto()
+  }
 
   const apply = (s) => {
     onApply(s.params)
@@ -26,11 +39,11 @@ export default function SuggestionChips({ analysis, onApply, onApplyAll, disable
     <div className="panel-section">
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
         <h3 className="panel-title" style={{ margin: 0 }}>
-          Suggestions
+          Auto Enhance
         </h3>
-        {suggestions.length && applied.size ? (
-          <button className="btn ghost small" onClick={reset} disabled={disabled}>
-            Clear marks
+        {hasAuto ? (
+          <button className="btn ghost small" onClick={clear} disabled={disabled}>
+            Clear
           </button>
         ) : null}
       </div>
@@ -68,6 +81,19 @@ export default function SuggestionChips({ analysis, onApply, onApplyAll, disable
           </div>
         </>
       )}
+
+      <div style={{ marginTop: 16 }}>
+        <Slider
+          label="Correction strength"
+          value={autoIntensity}
+          min={0}
+          max={1}
+          step={0.01}
+          format={(v) => `${Math.round(v * 100)}%`}
+          onChange={onAutoIntensityChange}
+          modified={hasAuto}
+        />
+      </div>
     </div>
   )
 }

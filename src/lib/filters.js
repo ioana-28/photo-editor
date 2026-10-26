@@ -2,14 +2,17 @@
 // and (later) AI all write into. Keep this the single source of truth.
 
 export const NEUTRAL_PARAMS = {
-  brightness: 0, 
-  contrast: 0, 
-  saturation: 0, 
-  warmth: 0, 
-  hue: 0, 
+  brightness: 0,
+  contrast: 0,
+  shadows: 0,
+  highlights: 0,
+  saturation: 0,
+  vibrance: 0,
+  warmth: 0,
+  hue: 0,
   fade: 0,
-  vignette: 0, 
-  grain: 0, 
+  vignette: 0,
+  grain: 0,
   sharpen: 0,
 }
 
@@ -37,7 +40,10 @@ export function clampParams(p) {
   return {
     brightness: clamp(p.brightness ?? 0, -1, 1),
     contrast: clamp(p.contrast ?? 0, -1, 1),
+    shadows: clamp(p.shadows ?? 0, -1, 1),
+    highlights: clamp(p.highlights ?? 0, -1, 1),
     saturation: clamp(p.saturation ?? 0, -1, 1),
+    vibrance: clamp(p.vibrance ?? 0, -1, 1),
     warmth: clamp(p.warmth ?? 0, -1, 1),
     hue: clamp(p.hue ?? 0, -180, 180),
     fade: clamp(p.fade ?? 0, 0, 1),
@@ -75,14 +81,36 @@ export function toCssFilter(p) {
   return parts.length ? parts.join(' ') : 'none'
 }
 
-/** Build a 256-entry lookup table from the params that are tone remaps. */
+/**
+ * Build a 256-entry tone lookup table combining fade, shadows and highlights.
+ * Applied per channel after the base draw. Shadows target the dark end,
+ * highlights target the bright end, each with a smooth falloff.
+ */
 export function buildLut(p) {
   const fade = clamp(p.fade ?? 0, 0, 1)
+  const shadows = clamp(p.shadows ?? 0, -1, 1)
+  const highlights = clamp(p.highlights ?? 0, -1, 1)
+  const lift = fade * 0.18
   const lut = new Uint8ClampedArray(256)
-  // Fade lifts the black point and gently compresses, giving a matte finish.
-  const lift = fade * 0.22 // up to ~56 levels of black lift
   for (let i = 0; i < 256; i++) {
-    lut[i] = lift * 255 + i * (1 - lift)
+    let v = i / 255
+    // fade lifts the black point
+    v = lift + v * (1 - lift)
+    // shadows: strongest at the darkest tones
+    const shadowWeight = (1 - v) * (1 - v)
+    v += shadows * 0.3 * shadowWeight
+    // highlights: strongest at the brightest tones
+    const highlightWeight = v * v
+    v += highlights * 0.3 * highlightWeight
+    lut[i] = clamp(v, 0, 1) * 255
   }
   return lut
+}
+
+export function toneNeeded(p) {
+  return (
+    (p.fade ?? 0) > 1e-4 ||
+    Math.abs(p.shadows ?? 0) > 1e-4 ||
+    Math.abs(p.highlights ?? 0) > 1e-4
+  )
 }

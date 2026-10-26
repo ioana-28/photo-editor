@@ -10,6 +10,8 @@ export default function Toolbar({
   format,
   setFormat,
   canAuto,
+  comparePinned,
+  onToggleCompare,
 }) {
   const inputRef = useRef(null)
 
@@ -37,6 +39,15 @@ export default function Toolbar({
 
       <button className="btn ghost" onClick={onResetAll} disabled={!hasImage}>
         Reset
+      </button>
+
+      <button
+        className={`btn ${comparePinned ? 'primary' : 'ghost'}`}
+        onClick={onToggleCompare}
+        disabled={!hasImage}
+        title="Toggle before/after preview"
+      >
+        Before / After
       </button>
 
       <div className="spacer" />

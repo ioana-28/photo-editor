@@ -3,8 +3,8 @@ import {
   NEUTRAL_PARAMS,
   addParams,
   clampParams,
-  combineParams,
   neutralParams,
+  scaleParams,
 } from '../lib/filters'
 import {
   findPreset,
@@ -23,8 +23,11 @@ function init() {
     selectedPresetId: null,
     intensity: 1,
     manual: neutralParams(),
+    auto: neutralParams(),
+    autoIntensity: 1,
     userPresets: loadUserPresets(),
     compare: false,
+    comparePinned: false,
     aiRationale: '',
   }
 }
@@ -66,6 +69,19 @@ function reducer(state, action) {
       return { ...state, manual: neutralParams() }
     case 'SET_COMPARE':
       return { ...state, compare: action.value }
+    case 'TOGGLE_COMPARE_PINNED':
+      return { ...state, comparePinned: !state.comparePinned }
+    case 'SET_AUTO':
+      return { ...state, auto: clampParams(action.params) }
+    case 'ADD_AUTO':
+      return {
+        ...state,
+        auto: clampParams(addParams(state.auto, action.params)),
+      }
+    case 'SET_AUTO_INTENSITY':
+      return { ...state, autoIntensity: action.value }
+    case 'RESET_AUTO':
+      return { ...state, auto: neutralParams(), autoIntensity: 1 }
     case 'ADD_USER_PRESET': {
       const list = [...state.userPresets, action.preset]
       saveUserPresets(list)
@@ -94,7 +110,10 @@ function reducer(state, action) {
         selectedPresetId: null,
         intensity: 1,
         manual: neutralParams(),
+        auto: neutralParams(),
+        autoIntensity: 1,
         compare: false,
+        comparePinned: false,
       }
     default:
       return state
@@ -115,13 +134,22 @@ export function useEditor() {
   )
 
   const effectiveParams = useMemo(() => {
-    if (state.compare) return { ...NEUTRAL_PARAMS }
-    return combineParams(
+    if (state.compare || state.comparePinned) return { ...NEUTRAL_PARAMS }
+    const fromPreset = scaleParams(
       selectedPreset?.params ?? NEUTRAL_PARAMS,
-      state.manual,
       state.intensity,
     )
-  }, [selectedPreset, state.manual, state.intensity, state.compare])
+    const fromAuto = scaleParams(state.auto, state.autoIntensity)
+    return clampParams(addParams(addParams(fromPreset, state.manual), fromAuto))
+  }, [
+    selectedPreset,
+    state.manual,
+    state.auto,
+    state.intensity,
+    state.autoIntensity,
+    state.compare,
+    state.comparePinned,
+  ])
 
   const actions = useMemo(
     () => ({
@@ -137,6 +165,12 @@ export function useEditor() {
       setManual: (params) => dispatch({ type: 'SET_MANUAL', params }),
       resetManual: () => dispatch({ type: 'RESET_MANUAL' }),
       setCompare: (value) => dispatch({ type: 'SET_COMPARE', value }),
+      toggleComparePinned: () => dispatch({ type: 'TOGGLE_COMPARE_PINNED' }),
+      setAuto: (params) => dispatch({ type: 'SET_AUTO', params }),
+      addAuto: (params) => dispatch({ type: 'ADD_AUTO', params }),
+      setAutoIntensity: (value) =>
+        dispatch({ type: 'SET_AUTO_INTENSITY', value }),
+      resetAuto: () => dispatch({ type: 'RESET_AUTO' }),
       savePreset: (name, params) =>
         dispatch({ type: 'ADD_USER_PRESET', preset: makeUserPreset(name, params) }),
       deletePreset: (id) => dispatch({ type: 'DELETE_USER_PRESET', id }),
@@ -152,5 +186,18 @@ export function useEditor() {
     [state.manual],
   )
 
-  return { state, allPresets, selectedPreset, effectiveParams, hasManual, actions }
+  const hasAuto = useMemo(
+    () => Object.values(state.auto).some((v) => Math.abs(v) > 1e-4),
+    [state.auto],
+  )
+
+  return {
+    state,
+    allPresets,
+    selectedPreset,
+    effectiveParams,
+    hasManual,
+    hasAuto,
+    actions,
+  }
 }

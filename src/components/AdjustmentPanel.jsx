@@ -9,7 +9,10 @@ const percent = (v) => `${Math.round(v * 100)}`
 const ADJUSTMENTS = [
   { key: 'brightness', label: 'Brightness', min: -1, max: 1, format: signed },
   { key: 'contrast', label: 'Contrast', min: -1, max: 1, format: signed },
+  { key: 'highlights', label: 'Highlights', min: -1, max: 1, format: signed },
+  { key: 'shadows', label: 'Shadows', min: -1, max: 1, format: signed },
   { key: 'saturation', label: 'Saturation', min: -1, max: 1, format: signed },
+  { key: 'vibrance', label: 'Vibrance', min: -1, max: 1, format: signed },
   { key: 'warmth', label: 'Warmth', min: -1, max: 1, format: signed },
   { key: 'hue', label: 'Hue', min: -180, max: 180, step: 1, format: (v) => `${Math.round(v)}°` },
   { key: 'fade', label: 'Fade', min: 0, max: 1, format: percent },

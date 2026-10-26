@@ -1,7 +1,5 @@
 import { clamp, neutralParams } from './filters'
 
-
-
 const CHIP_META = {
   'too dark': { icon: '☀️', label: 'Brighten' },
   'too bright': { icon: '🌙', label: 'Darken' },
@@ -34,46 +32,67 @@ export function suggestionsFromAnalysis(analysis) {
     .filter((s) => s.params)
 }
 
+// Conservative, measured corrections. Each magnitude scales with how far off
+// the photo is, then is clamped to a small cap so Auto never overdoes it.
 function fixFor(status, m) {
   switch (status) {
     case 'too dark': {
-      const deficit = 0.5 - m.brightness.median
-      return { ...neutralParams(), brightness: clamp(deficit * 1.3, 0, 0.5) }
+      const deficit = clamp(0.5 - m.brightness.median, 0, 0.4)
+      return {
+        ...neutralParams(),
+        brightness: clamp(deficit * 0.9, 0, 0.3),
+        shadows: clamp(deficit * 0.6, 0, 0.2),
+      }
     }
     case 'too bright': {
-      const excess = m.brightness.median - 0.5
-      return { ...neutralParams(), brightness: clamp(-excess * 1.1, -0.45, 0) }
+      const excess = clamp(m.brightness.median - 0.5, 0, 0.4)
+      return {
+        ...neutralParams(),
+        brightness: clamp(-excess * 0.7, -0.25, 0),
+        highlights: clamp(-excess * 0.8, -0.3, 0),
+      }
     }
     case 'flat': {
-      const deficit = 0.7 - m.contrast.range
-      return { ...neutralParams(), contrast: clamp(deficit * 0.9, 0, 0.4) }
+      const deficit = clamp(0.7 - m.contrast.range, 0, 0.4)
+      return { ...neutralParams(), contrast: clamp(deficit * 0.7, 0, 0.25) }
     }
     case 'cool cast': {
-      return { ...neutralParams(), warmth: clamp(m.color.castStrength * 2, 0, 0.4) }
+      return {
+        ...neutralParams(),
+        warmth: clamp(m.color.castStrength * 1.5, 0, 0.28),
+      }
     }
     case 'warm cast': {
-      return { ...neutralParams(), warmth: clamp(-m.color.castStrength * 2, -0.4, 0) }
+      return {
+        ...neutralParams(),
+        warmth: clamp(-m.color.castStrength * 1.5, -0.28, 0),
+      }
     }
     case 'washed out': {
-      const deficit = 0.35 - m.saturation.mean
-      return { ...neutralParams(), saturation: clamp(deficit * 1.5, 0, 0.4) }
+      const deficit = clamp(0.35 - m.saturation.mean, 0, 0.35)
+      return {
+        ...neutralParams(),
+        vibrance: clamp(deficit * 1.4, 0, 0.3),
+        saturation: clamp(deficit * 0.7, 0, 0.2),
+      }
     }
     case 'oversaturated': {
-      const excess = m.saturation.mean - 0.4
-      return { ...neutralParams(), saturation: clamp(-excess * 1.2, -0.35, 0) }
+      const excess = clamp(m.saturation.mean - 0.4, 0, 0.3)
+      return { ...neutralParams(), saturation: clamp(-excess * 0.9, -0.25, 0) }
     }
     case 'crushed blacks':
-      return { ...neutralParams(), fade: 0.18, brightness: 0.06 }
+      return { ...neutralParams(), shadows: 0.28, fade: 0.1 }
     case 'blown highlights':
-      return { ...neutralParams(), brightness: -0.12, contrast: -0.05 }
+      return { ...neutralParams(), highlights: -0.3 }
     case 'soft':
-      return { ...neutralParams(), sharpen: 0.4 }
+      return { ...neutralParams(), sharpen: 0.3 }
     default:
       return null
   }
 }
 
-// Apply every confident fix at once (the "Auto Enhance" button).
+// Apply every confident fix at once (the "Auto Enhance" button). The result is
+// summed then clamped to deliberately conservative caps.
 export function autoEnhanceParams(analysis) {
   const suggestions = suggestionsFromAnalysis(analysis)
   const merged = neutralParams()
@@ -82,11 +101,14 @@ export function autoEnhanceParams(analysis) {
       merged[k] += s.params[k] ?? 0
     }
   }
-  merged.brightness = clamp(merged.brightness, -0.6, 0.6)
-  merged.contrast = clamp(merged.contrast, -0.5, 0.5)
-  merged.saturation = clamp(merged.saturation, -0.5, 0.5)
-  merged.warmth = clamp(merged.warmth, -0.5, 0.5)
-  merged.fade = clamp(merged.fade, 0, 0.35)
-  merged.sharpen = clamp(merged.sharpen, 0, 0.5)
+  merged.brightness = clamp(merged.brightness, -0.4, 0.4)
+  merged.contrast = clamp(merged.contrast, -0.35, 0.35)
+  merged.saturation = clamp(merged.saturation, -0.35, 0.35)
+  merged.vibrance = clamp(merged.vibrance, -0.3, 0.3)
+  merged.warmth = clamp(merged.warmth, -0.35, 0.35)
+  merged.shadows = clamp(merged.shadows, -0.35, 0.35)
+  merged.highlights = clamp(merged.highlights, -0.35, 0.35)
+  merged.fade = clamp(merged.fade, 0, 0.2)
+  merged.sharpen = clamp(merged.sharpen, 0, 0.35)
   return merged
 }
