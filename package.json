@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "server": "node --env-file=.env server/server.js"
   },
   "dependencies": {
     "react": "^18.3.1",
