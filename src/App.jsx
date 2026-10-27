@@ -6,8 +6,10 @@ import PresetGrid from './components/PresetGrid'
 import AdjustmentPanel from './components/AdjustmentPanel'
 import IntensityControl from './components/IntensityControl'
 import SuggestionChips from './components/SuggestionChips'
+import AiSuggest from './components/AiSuggest'
 import PresetIOMenu from './components/PresetIOMenu'
 import MatchReference from './components/MatchReference'
+import AiReference from './components/AiReference'
 import { useEditor } from './hooks/useEditor'
 import { loadImageFile, makeThumbnail } from './lib/imageLoader'
 import { analyzeBitmap } from './lib/analyze'
@@ -150,6 +152,11 @@ export default function App() {
               onApply={actions.applyDelta}
               disabled={busy}
             />
+            <AiReference
+              currentBitmap={state.image.preview}
+              onApply={actions.setAuto}
+              disabled={busy}
+            />
           </aside>
 
           <EditorCanvas
@@ -161,6 +168,11 @@ export default function App() {
           />
 
           <aside className="panel right">
+            <AiSuggest
+              bitmap={state.image.preview}
+              onApply={actions.setAuto}
+              disabled={busy}
+            />
             <SuggestionChips
               analysis={state.analysis}
               autoIntensity={state.autoIntensity}

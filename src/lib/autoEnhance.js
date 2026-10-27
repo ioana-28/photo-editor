@@ -65,7 +65,7 @@ function fixFor(status, m) {
     case 'warm cast': {
       return {
         ...neutralParams(),
-        warmth: clamp(-m.color.castStrength * 1.5, -0.28, 0),
+      warmth: clamp(-m.color.castStrength * 1.5, -0.28, 0),
       }
     }
     case 'washed out': {

@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { analyzeImage } from './deepseek.js'
+import { analyzeImage, analyzeReference } from './deepseek.js'
 
 const PORT = Number(process.env.PORT) || 3001
 const MAX_BODY_BYTES = 40 * 1024 * 1024
@@ -65,6 +65,43 @@ const server = http.createServer(async (req, res) => {
       }
 
       const result = await analyzeImage(input)
+      sendJson(res, 200, { ok: true, model: 'deepseek-flash', ...result })
+    } catch (err) {
+      const status = err.status ?? 500
+      sendJson(res, status, {
+        ok: false,
+        error: err.message || 'Unknown error',
+      })
+    }
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/analyze-reference') {
+    try {
+      const contentType = String(req.headers['content-type'] ?? '').toLowerCase()
+      if (!contentType.includes('application/json')) {
+        throw new HttpError(
+          415,
+          'Send application/json for /api/analyze-reference.',
+        )
+      }
+      const raw = await readBody(req)
+      let parsed
+      try {
+        parsed = JSON.parse(raw.toString('utf8') || '{}')
+      } catch {
+        throw new HttpError(400, 'Invalid JSON body.')
+      }
+
+      const result = await analyzeReference({
+        before: parsed.before,
+        after: parsed.after,
+        target: parsed.target,
+        beforePath: parsed.beforePath,
+        afterPath: parsed.afterPath,
+        targetPath: parsed.targetPath,
+        prompt: parsed.prompt,
+      })
       sendJson(res, 200, { ok: true, model: 'deepseek-flash', ...result })
     } catch (err) {
       const status = err.status ?? 500

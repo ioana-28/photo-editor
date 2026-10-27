@@ -37,6 +37,57 @@ export function matchReference(targetBitmap, referenceBitmap) {
   return params
 }
 
+/**
+ * Deterministic fallback for a BEFORE/AFTER reference pair.
+ * Computes the LAB statistics delta between the two and maps it to params,
+ * so the EDIT (not the absolute look) is applied to the target photo.
+ */
+export function editParamsFromPair(beforeBitmap, afterBitmap) {
+  const a = stats(beforeBitmap)
+  const b = stats(afterBitmap)
+  if (!a || !b) return neutralParams()
+  return deltaToParams({
+    dL: b.L - a.L,
+    dLstd: b.Lstd - a.Lstd,
+    LstdBefore: a.Lstd,
+    da: b.a - a.a,
+    db: b.b - a.b,
+    chromaBefore: Math.hypot(a.a, a.b),
+    chromaAfter: Math.hypot(b.a, b.b),
+  })
+}
+
+/** Pure mapping from LAB-stat deltas to editable params (unit-testable). */
+export function deltaToParams(delta = {}) {
+  const dL = num(delta.dL)
+  const dLstd = num(delta.dLstd)
+  const da = num(delta.da)
+  const db = num(delta.db)
+  const stdBefore = num(delta.LstdBefore)
+  const chromaBefore = num(delta.chromaBefore)
+  const chromaAfter = num(delta.chromaAfter)
+
+  const params = neutralParams()
+  params.brightness = clamp(dL / 45, -0.45, 0.45)
+
+  const stdAfter = stdBefore + dLstd
+  const stdRatio = stdBefore > 1e-3 ? stdAfter / stdBefore : 1
+  params.contrast = clamp((stdRatio - 1) * 0.5, -0.4, 0.4)
+
+  params.warmth = clamp(db / 22, -0.4, 0.4)
+  params.hue = clamp(da * 1.4, -22, 22)
+
+  const chromaRatio = chromaBefore > 1e-3 ? chromaAfter / chromaBefore : 1
+  params.saturation = clamp((chromaRatio - 1) * 0.55, -0.4, 0.4)
+
+  return params
+}
+
+function num(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 function stats(bitmap) {
   try {
     const scale = Math.min(1, SAMPLE / Math.max(bitmap.width, bitmap.height))

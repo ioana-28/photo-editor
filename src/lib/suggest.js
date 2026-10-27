@@ -1,18 +1,29 @@
 import { autoEnhanceParams } from './autoEnhance'
 import { neutralParams } from './filters'
+import { aiSuggest } from './aiSuggest'
 
 /**
- * Provider-agnostic seam. Today it only knows the local heuristic engine.
- * Later, an AI branch can be added here WITHOUT touching the UI or pipeline:
+ * Provider-agnostic seam.
  *
- *   if (mode === 'ai') return aiSuggest({ previewBitmap, prompt })
+ * - mode "heuristic": local, offline photo measurement (default).
+ * - mode "ai":        asks the local DeepSeek server for suggested params.
  *
- * `aiSuggest` can be a cloud vision LLM (via a serverless proxy that holds the
- * key) or an on-device model — both must return the same shape below.
+ * Both return the same shape, so the UI and pipeline never care who answered:
+ *   { params, rationale, source, confidence? }
  *
- * @returns {Promise<{ params: object, source: string, rationale: string }>}
+ * @returns {Promise<{ params: object, rationale: string, source: string }>}
  */
-export async function suggestParams({ analysis, mode = 'heuristic' } = {}) {
+export async function suggestParams({
+  analysis,
+  mode = 'heuristic',
+  bitmap,
+  prompt,
+} = {}) {
+  if (mode === 'ai') {
+    const result = await aiSuggest({ bitmap, prompt })
+    return { ...result, source: 'ai' }
+  }
+
   if (mode === 'heuristic') {
     const params = analysis ? autoEnhanceParams(analysis) : neutralParams()
     const count = analysis?.assessment?.length ?? 0
@@ -25,6 +36,5 @@ export async function suggestParams({ analysis, mode = 'heuristic' } = {}) {
     }
   }
 
-  // Reserved for AI providers.
   return { params: neutralParams(), source: 'none', rationale: '' }
 }
